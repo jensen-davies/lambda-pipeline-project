@@ -9,11 +9,14 @@ terraform {
 
 resource "aws_s3_bucket" "input_bucket" {
     bucket = var.s3_bucket_name
+
+    force_destroy = true # Force destroy the bucket even if it's not empty.
 }
 
 resource "aws_dynamodb_table" "result_table" {
     name            = var.dynamodb_table_name
-    hash_key        = "FileId" # Primary key fotr the t able
+    hash_key        = "FileId" # Primary key for the table
+    billing_mode    = "PAY_PER_REQUEST" # Charge for reads and writes.
 
     attribute {
         name = "FileId"
@@ -61,16 +64,21 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
     policy_arn  = aws_iam_policy.lambda_policy.arn # The ARN of the policy to attach.
 }
 
+data "archive_file" "lambda_zip" {
+    type        = "zip"
+    source_file = "${path.module}/../Lambda/lambda_function.py" # The file to zip.
+    output_path = "${path.module}/../Lambda/lambda_function.zip" # The name of the output file.
+}
+
 resource "aws_lambda_function" "data_processor" {
     function_name = var.lambda_function_name
 
-    s3_bucket   = aws_s3_bucket.input_bucket.id # S3 bucket for the Lambda code.
-    s3_key      = var.lambda_s3_key # Key of the Lambda code in the S3 bucket.
+    filename    = data.archive_file.lambda_zip.output_path # The name of the output file.
     handler     = var.lambda_handler # The function within lambda_function.py that Lambda calls.
     runtime     = var.lambda_runtime # Runtime for the Lambda function.
     role        = aws_iam_role.lambda_execution_role.arn # IAM role that Lambda assumes.
 
-    source_code_hash = filebase64sha256("lambda_function.py") # Ensures that updates to the Lambda code trigger redeployment.
+    source_code_hash = filebase64sha256("${path.module}/../Lambda/lambda_function.py") # Ensures that updates to the Lambda code trigger redeployment.
 }
 
 resource "aws_lambda_permission" "allow_bucket" {

@@ -33,9 +33,3 @@ variable "lambda_handler" {
     type        = string
     default     = "lambda_function.lambda_handler"
 }
-
-variable "lambda_s3_key" {
-    description = "S3 key (file path) where the Lambda function code is stored"
-    type        = string
-    default     = "lambda_function.zip"
-}
